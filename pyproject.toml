@@ -3,7 +3,7 @@ requires = ["scikit-build-core>=0.12"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "pyisodec"
+name = "isodec"
 dynamic = ["version"]
 description = "Charge-state assignment and deconvolution of isotopically resolved mass spectra"
 readme = "README.md"
