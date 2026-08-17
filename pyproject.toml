@@ -37,7 +37,7 @@ dependencies = [
     "numba>=0.57",
     "numpy>=1.23",
     "pandas>=2.0",
-    "pyisogen>=1.0.7,<2",
+    "pyisogen>=1.0.8",
     "scipy>=1.9",
 ]
 
