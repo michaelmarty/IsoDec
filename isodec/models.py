@@ -1,5 +1,8 @@
 import numpy as np
 import os
+import sys
+from pathlib import Path
+
 import torch
 from torch import nn
 # from torchvision.models import resnet50, mobilenet_v3_large, MobileNet_V3_Large_Weights, ResNet50_Weights
@@ -7,6 +10,11 @@ from torch.optim import lr_scheduler
 import time
 import platform
 # from torchshape import tensorshape
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "isodec"
+
 from .encoding import encode_phase
 import inspect
 

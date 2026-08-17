@@ -1,8 +1,10 @@
 from pathlib import Path
 import sys
 
-path_root = Path(__file__).parents[2]
-sys.path.append(str(path_root))
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "isodec"
+
 from .engine import IsoDecEngine
 from .encoding_profile import data_dirs
 import os

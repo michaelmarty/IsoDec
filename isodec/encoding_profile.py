@@ -1,8 +1,15 @@
 import os
 import pickle
+import sys
 import time
+from pathlib import Path
 
 import numpy as np
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "isodec"
+
 from . import encoding
 from . import tools as ud
 import matplotlib.pyplot as plt

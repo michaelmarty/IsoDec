@@ -1,5 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+from pathlib import Path
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "isodec"
+
 from . import tools as ud
 
 example = np.array(

@@ -2,8 +2,15 @@ import time
 import numpy as np
 from itertools import chain
 import os
+import sys
+from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "isodec"
 
 from .encoding import encode_synthetic
 from .models import example, PhaseModel

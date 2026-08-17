@@ -2,9 +2,14 @@ import ctypes
 from importlib import metadata
 import os
 import platform
+import sys
 from pathlib import Path
 
 import numpy as np
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "isodec"
 
 from .match import MatchedPeak, MatchedCollection
 from .config import IsoDecConfig

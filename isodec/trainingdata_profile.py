@@ -1,7 +1,15 @@
 import os
 import pickle
+import sys
 from itertools import groupby
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "isodec"
+
 from .runtime import IsoDecRuntime
 import time
 import numpy as np

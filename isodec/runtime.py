@@ -1,18 +1,25 @@
 import os
+import sys
 import time
+from pathlib import Path
+
 import numpy as np
 
-from .datatools import get_all_centroids, check_spacings, remove_noise_cdata, datacompsub
-from .match import MatchedCollection
-from .config import IsoDecConfig
-
 from copy import deepcopy
-from .c_interface import IsoDecWrapper, example
-from .plots import plot_pks
-from .altdecon import thrash_predict
-from .io import ImporterFactory
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "isodec"
+
 from . import fwhm as fwhmtools
 from ._version import __version__
+from .altdecon import thrash_predict
+from .c_interface import IsoDecWrapper, example
+from .config import IsoDecConfig
+from .datatools import check_spacings, datacompsub, get_all_centroids, remove_noise_cdata
+from .io import ImporterFactory
+from .match import MatchedCollection
+from .plots import plot_pks
 
 class IsoDecRuntime:
     """

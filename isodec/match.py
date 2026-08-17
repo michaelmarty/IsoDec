@@ -1,4 +1,11 @@
 import numpy as np
+import sys
+from pathlib import Path
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    __package__ = "isodec"
+
 from .datatools import fastnearest, fastwithin_abstol_withnearest
 from typing import List, Tuple
 from numba import njit
