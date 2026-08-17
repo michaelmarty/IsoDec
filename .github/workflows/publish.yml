@@ -187,7 +187,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/pyisodec
+      url: https://pypi.org/p/isodec
     permissions:
       id-token: write
     steps:

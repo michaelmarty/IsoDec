@@ -9,7 +9,7 @@ for peptide and RNA isotope distributions.
 Install a published wheel:
 
 ```shell
-python -m pip install pyisodec
+python -m pip install isodec
 ```
 
 IsoDec supports Python 3.9 and newer on 64-bit Windows, Linux, and macOS.
@@ -40,7 +40,7 @@ TXT, DAT, CSV, and NPZ single-scan spectra are supported without UniDec. Raw
 vendor files, mzML/mzXML, and I2MS import use UniDec's extensive importer stack:
 
 ```shell
-python -m pip install "pyisodec[unidec]"
+python -m pip install "isodec[unidec]"
 ```
 
 ## Command line

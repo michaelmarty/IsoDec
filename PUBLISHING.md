@@ -33,7 +33,7 @@ Test the wheel in a clean environment from outside the repository:
 
 ```shell
 python -m venv wheel-test
-wheel-test/Scripts/python -m pip install dist/pyisodec-*.whl
+wheel-test/Scripts/python -m pip install dist/isodec-*.whl
 wheel-test/Scripts/python -m pytest tests --import-mode=importlib
 ```
 

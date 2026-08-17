@@ -34,7 +34,7 @@ def _editable_library_path():
     """Locate scikit-build's native install during an editable install."""
     try:
         candidate = Path(
-            metadata.distribution("pyisodec").locate_file(
+            metadata.distribution("isodec").locate_file(
                 Path("isodec") / "bin" / dllname
             )
         )
@@ -180,7 +180,7 @@ class IsoDecWrapper:
         if not dllpath.is_file():
             raise ImportError(
                 f"IsoDec's native library is missing: {dllpath}. Reinstall "
-                "pyisodec using a compatible wheel, or build from source "
+                "isodec using a compatible wheel, or build from source "
                 "with CMake and a native compiler."
             )
 

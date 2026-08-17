@@ -59,7 +59,7 @@ def _unidec_importer_factory():
     except ImportError as error:
         raise ImportError(
             "This spectrum format requires UniDec. Install the optional "
-            "integration with `pip install pyisodec[unidec]`."
+            "integration with `pip install isodec[unidec]`."
         ) from error
     return UniDecImporterFactory
 
