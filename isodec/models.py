@@ -2,13 +2,12 @@ import numpy as np
 import os
 import torch
 from torch import nn
-from torchvision.transforms import ToTensor
 # from torchvision.models import resnet50, mobilenet_v3_large, MobileNet_V3_Large_Weights, ResNet50_Weights
 from torch.optim import lr_scheduler
 import time
 import platform
 # from torchshape import tensorshape
-from unidec.IsoDec.encoding import  encode_phase
+from .encoding import encode_phase
 import inspect
 
 # Speed up matmul precision for faster training

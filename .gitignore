@@ -3,3 +3,11 @@
 /isodec/src/cmake-build-release-wsl/
 /isodec/src/CMakeFiles/
 /.idea
+/.venv/
+/build/
+/dist/
+/site/
+/.pytest_cache/
+/**/__pycache__/
+/*.egg-info/
+/wheelhouse/

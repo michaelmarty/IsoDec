@@ -4,10 +4,10 @@ import os
 import numpy as np
 import pandas as pd
 
-from unidec import tools as ud
-from unidec.IsoDec.datatools import fastnearest, fastwithin_abstol
-from unidec.IsoDec.match import MatchedCollection, MatchedPeak, get_estimated_monoiso, remove_multiple_monoisos
-from unidec.modules.isotopetools import fast_calc_averagine_isotope_dist
+from . import tools as ud
+from .datatools import fastnearest, fastwithin_abstol
+from .match import MatchedCollection, MatchedPeak, get_estimated_monoiso, remove_multiple_monoisos
+from .isotope import calc_isotope_dist
 
 
 # Will generate list of matchedpeak objects from text file
@@ -28,7 +28,7 @@ def read_manual_annotations(path=None, delimiter=' ', data=None):
                 peakmass = (peak - 1.007276467) * int(currCharge)
                 z.monoiso = get_estimated_monoiso(peakmass)
                 z.monoisos = [z.monoiso]
-                isodist = fast_calc_averagine_isotope_dist(z.monoiso, currCharge)
+                isodist = calc_isotope_dist(z.monoiso, currCharge)
                 if data is not None:
                     # Find nearest peak in data
                     mz = isodist[np.argmax(isodist[:, 1]), 0]
@@ -322,7 +322,7 @@ def read_msalign_to_matchedcollection(file, data=None, mz_type="monoiso", mass_t
                     pk.rt = current_rt
                     scan_peaks.append(pk)
 
-                isodist = fast_calc_averagine_isotope_dist(pk.monoiso, pk.z)
+                isodist = calc_isotope_dist(pk.monoiso, pk.z)
                 if data is not None:
                     # Find nearest peak in data
                     mz = isodist[np.argmax(isodist[:, 1]), 0]
@@ -367,7 +367,7 @@ def read_fd_tsv_to_matchedcollection(file, data=None, mz_type="monoiso"):
                     pk.matchedintensity = float(split[7])
                     pk.rt = float(split[3])
 
-                    isodist = fast_calc_averagine_isotope_dist(pk.monoiso, pk.z)
+                    isodist = calc_isotope_dist(pk.monoiso, pk.z)
                     if data is not None:
                         # Find nearest peak in data
                         mz = isodist[np.argmax(isodist[:, 1]), 0]
@@ -403,7 +403,7 @@ def peak_mz_z_df_to_matchedcollection(df, data=None):
         pk.monoiso = (pk.mz - 1.007276467) * pk.z
         pk.monoisos = [pk.monoiso]
         mc.add_peak(pk)
-        isodist = fast_calc_averagine_isotope_dist(pk.monoiso, pk.z)
+        isodist = calc_isotope_dist(pk.monoiso, pk.z)
 
         if data is not None:
             # Find nearest peak in data
@@ -611,7 +611,7 @@ def parse_line_set(mc, filename, decon_engine, lines, data=None, scan_order=2):
         pk.rt = current_rt
         pk.ms_order = scan_order
 
-        isodist = fast_calc_averagine_isotope_dist(pk.monoiso, pk.z)
+        isodist = calc_isotope_dist(pk.monoiso, pk.z)
         if data is not None:
             # Find nearest peak in data
             mz = isodist[np.argmax(isodist[:, 1]), 0]
@@ -680,6 +680,6 @@ def df_to_matchedcollection(df, monoiso="Monoisotopic Mass", peakmz="Most Abunda
 
 def create_isodist2(monoiso, charge, maxval, adductmass=1.007276467):
     charge = float(charge)
-    isodist = fast_calc_averagine_isotope_dist(monoiso, charge=charge)
+    isodist = calc_isotope_dist(monoiso, charge=charge)
     isodist[:, 1] *= maxval
     return isodist

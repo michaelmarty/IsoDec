@@ -1,32 +1,50 @@
 import ctypes
+from importlib import metadata
 import os
-import numpy as np
-from pathlib import Path
-import sys
 import platform
+from pathlib import Path
 
-path_root = Path(__file__).parents[2]
-sys.path.append(str(path_root))
+import numpy as np
 
-import matplotlib.pyplot as plt
-from unidec.IsoDec.match import MatchedPeak, MatchedCollection
-from unidec.modules.unidecstructure import IsoDecConfig
-from unidec.IsoDec.plots import plot_pks, cplot
-from unidec.tools import start_at_iso, datachop
+from .match import MatchedPeak, MatchedCollection
+from .config import IsoDecConfig
 
-current_path = os.path.dirname(os.path.realpath(__file__))
+_system = platform.system()
+_library_names = {
+    "Windows": "isodeclib.dll",
+    "Linux": "isodeclib.so",
+    "Darwin": "isodeclib.dylib",
+}
+try:
+    dllname = _library_names[_system]
+except KeyError as error:
+    raise ImportError(f"IsoDec does not support {_system!r}") from error
 
-if platform.system() == "Windows":
-    dllname = "isodeclib.dll"
-elif platform.system() == "Linux":
-    dllname = "isodeclib.so"
+_package_dir = Path(__file__).resolve().parent
+_packaged_library_path = _package_dir / "bin" / dllname
+_source_library_path = _package_dir / dllname
+
+
+def _editable_library_path():
+    """Locate scikit-build's native install during an editable install."""
+    try:
+        candidate = Path(
+            metadata.distribution("pyisodec").locate_file(
+                Path("isodec") / "bin" / dllname
+            )
+        )
+    except metadata.PackageNotFoundError:
+        return None
+    return candidate if candidate.is_file() else None
+
+if _packaged_library_path.is_file():
+    default_dll_path = _packaged_library_path
+elif (_package_dir.parent / "pyproject.toml").is_file() and _source_library_path.is_file():
+    default_dll_path = _source_library_path
+elif _editable_library_path() is not None:
+    default_dll_path = _editable_library_path()
 else:
-    dllname = "isodeclib.dylib"
-
-default_dll_path = start_at_iso(dllname, guess=current_path)
-
-if not default_dll_path:
-    print("DLL not found anywhere")
+    default_dll_path = _packaged_library_path
 
 example = np.array(
     [
@@ -153,11 +171,25 @@ class IsoDecWrapper:
         if dllpath is None:
             dllpath = default_dll_path
 
-        modelpath = os.path.join(os.path.dirname(os.path.abspath(dllpath)), "modelparams")
+        dllpath = Path(dllpath).resolve()
+        if not dllpath.is_file():
+            raise ImportError(
+                f"IsoDec's native library is missing: {dllpath}. Reinstall "
+                "pyisodec using a compatible wheel, or build from source "
+                "with CMake and a native compiler."
+            )
+
+        modelpath = _package_dir / "modelparams"
 
         self.modeldir = modelpath
 
-        self.c_lib = ctypes.CDLL(dllpath)
+        self._dll_directory_handle = None
+        if _system == "Windows":
+            self._dll_directory_handle = os.add_dll_directory(str(dllpath.parent))
+        try:
+            self.c_lib = ctypes.CDLL(str(dllpath))
+        except OSError as error:
+            raise ImportError(f"Unable to load IsoDec's native library {dllpath}: {error}") from error
 
         self.c_lib.encode.argtypes = [
             ctypes.POINTER(ctypes.c_double),
@@ -167,6 +199,7 @@ class IsoDecWrapper:
             IDConfig,
             IDSettings,
         ]
+        self.c_lib.encode.restype = ctypes.c_int
 
         self.c_lib.predict_charge.argtypes = [
             ctypes.POINTER(ctypes.c_double),
@@ -185,11 +218,12 @@ class IsoDecWrapper:
             IDSettings,
             ctypes.c_char_p,
         ]
+        self.c_lib.process_spectrum.restype = ctypes.c_int
 
         self.c_lib.DefaultSettings.argtypes = []
         self.c_lib.DefaultSettings.restype = IDSettings
 
-        self.modeldir = modelpath
+        self.modeldir = str(modelpath)
         # self.modelpath = ctypes.c_char_p(
         #     os.path.join(self.modeldir, "phase_model_8.bin").encode()
         # )
@@ -304,7 +338,7 @@ class IsoDecWrapper:
             pk.matchedintensity = np.sum(isodist)
             pk.peakint = p.peakint
 
-            # pk.isodist = fast_calc_averagine_isotope_dist(p.monoiso, p.z)
+            # pk.isodist = calc_isotope_dist(p.monoiso, p.z)
             pk.isodist = np.transpose((isomz, isodist))
             # pk.isodist[:, 1] = p.peakint
 

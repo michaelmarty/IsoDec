@@ -1,18 +1,16 @@
 import numpy as np
-from unidec.IsoDec.datatools import fastnearest, fastwithin_abstol_withnearest
+from .datatools import fastnearest, fastwithin_abstol_withnearest
 from typing import List, Tuple
 from numba import njit
 import matplotlib as mpl
-from unidec.modules.isotopetools import fast_calc_averagine_isotope_dist, mass_diff_c, \
-    fast_calc_averagine_isotope_dist_dualoutput
+from .isotope import calc_isotope_dist, calc_isotope_dist_dual, mass_diff_c
 import pickle as pkl
-import unidec.tools as ud
-import unidec.IsoDec.msalign_export as msalign
+from . import tools as ud
+from . import msalign_export as msalign
 import math
 from copy import deepcopy
-import pandas as pd
-from unidec.modules.fwhmtools import fast_fwhm, ndis_std, intensity_decon
-from unidec.modules.unidecstructure import IsoDecConfig
+from .fwhm import fast_fwhm, ndis_std, intensity_decon
+from .config import IsoDecConfig
 
 
 class MatchedCollection:
@@ -257,6 +255,7 @@ class MatchedCollection:
                 d = {"Charge": p.z, "Most Abundant m/z": p.mz, col: p.avgmass if avg else p.monoiso, "Scan": p.scan,
                      "Most Abundant Mass": p.peakmass, "Abundance": p.matchedintensity}
                 data.append(d)
+        import pandas as pd
         df = pd.DataFrame(data)
         return df
 
@@ -777,7 +776,7 @@ def create_isodist(peakmz, charge, data, adductmass=1.007276467):
         mass = peakmz
     else:
         mass = (peakmz - adductmass) * charge
-    isodist = fast_calc_averagine_isotope_dist(mass, charge=charge, adductmass=adductmass)
+    isodist = calc_isotope_dist(mass, charge=charge, adductmass=adductmass)
     isodist[:, 1] *= np.amax(data[:, 1])
     # shift isodist so that maxes are aligned with data
     mzshift = peakmz - isodist[np.argmax(isodist[:, 1]), 0]
@@ -800,8 +799,8 @@ def create_isodist_full(peakmz, charge, data, adductmass=1.007276467, isotopethr
     else:
         mass = (peakmz - adductmass) * charge
 
-    isodist, massdist = fast_calc_averagine_isotope_dist_dualoutput(mass, charge=charge, adductmass=adductmass,
-                                                                    isotopethresh=isotopethresh)
+    isodist, massdist = calc_isotope_dist_dual(mass, charge=charge, adductmass=adductmass,
+                                               isotopethresh=isotopethresh)
     isodist[:, 1] *= np.amax(data[:, 1])
     massdist[:, 1] *= np.amax(data[:, 1])
     # shift isodist so that maxes are aligned with data

@@ -2,8 +2,8 @@ from pathlib import Path
 import sys
 path_root = Path(__file__).parents[2]
 sys.path.append(str(path_root))
-from unidec.IsoDec.engine import IsoDecEngine
-from unidec.IsoDec.encoding import data_dirs
+from .engine import IsoDecEngine
+from .encoding import data_dirs
 import os
 
 

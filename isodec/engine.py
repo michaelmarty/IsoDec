@@ -5,23 +5,24 @@ import os
 import torch
 from torch.utils.data import DataLoader
 
-from unidec.IsoDec.encoding import encode_synthetic
-from unidec.IsoDec.models import example, PhaseModel
-from unidec.IsoDec.datatools import fastpeakdetect, get_all_centroids, fastnearest, check_spacings, remove_noise_cdata
-from unidec.IsoDec.match import optimize_shift2, MatchedCollection
-from unidec.modules.unidecstructure import IsoDecConfig
-from unidec.IsoDec.encoding import data_dirs, encode_noise, encode_phase_all, small_data_dirs, \
+from .encoding import encode_synthetic
+from .models import example, PhaseModel
+from .datatools import fastpeakdetect, get_all_centroids, fastnearest, check_spacings, remove_noise_cdata
+from .match import optimize_shift2, MatchedCollection
+from .config import IsoDecConfig
+from .encoding import data_dirs, encode_noise, encode_phase_all, small_data_dirs, \
     encode_double, encode_harmonic, extract_centroids
 
 from copy import deepcopy
 import pickle as pkl
 
-from unidec.IsoDec.c_interface import IsoDecWrapper
-from unidec.IsoDec.plots import *
+from .c_interface import IsoDecWrapper
+from .plots import *
 import platform
-from unidec.IsoDec.altdecon import thrash_predict
+from .altdecon import thrash_predict
 
-from unidec.UniDecImporter.ImporterFactory import *
+from .io import ImporterFactory
+from ._version import __version__
 
 
 class IsoDecDataset(torch.utils.data.Dataset):
@@ -68,7 +69,7 @@ class IsoDecEngine:
         self.test_centroids = []
         self.training_centroids = []
         self.config.verbose = verbose
-        self.version = "2.0.0"
+        self.version = __version__
 
         self.pks = MatchedCollection()
 

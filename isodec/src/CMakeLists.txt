@@ -1,118 +1,86 @@
-# ======================== Setup ========================
 cmake_minimum_required(VERSION 3.22.1)
-include(GenerateExportHeader)
+project(isodec LANGUAGES C CXX)
 
-project(isodeclib C CXX)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_SHARED_LIBRARY_PREFIX "")
 
-# ----------------------------
-# Force consistent MSVC runtime
-# ----------------------------
+option(ISODEC_ENABLE_AVX2 "Compile IsoDec's x86 native core with AVX2" ON)
+option(ISODEC_STATIC_GNU_RUNTIME "Statically link the GNU runtime on Linux" ON)
+option(ISODEC_REQUIRE_INTELLLVM "Fail unless Intel LLVM is the active compiler" OFF)
+
+if(ISODEC_REQUIRE_INTELLLVM AND NOT CMAKE_C_COMPILER_ID STREQUAL "IntelLLVM")
+    message(FATAL_ERROR
+        "ISODEC_REQUIRE_INTELLLVM is ON, but the C compiler is ${CMAKE_C_COMPILER_ID}"
+    )
+endif()
+
+# IsoGen is maintained independently and pinned by the repository submodule.
+# Its target supplies the isotope-distribution routines used by isodeclib.
+set(ISOGEN_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../extern/IsoGen/src")
+if(NOT EXISTS "${ISOGEN_SOURCE_DIR}/CMakeLists.txt")
+    message(FATAL_ERROR
+        "IsoGen submodule is missing. Run: git submodule update --init --recursive"
+    )
+endif()
+add_subdirectory("${ISOGEN_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/isogen")
+
+add_library(isodeclib SHARED
+    isodeclib.c
+    isodeclib.h
+    phase_model_4.h
+    phase_model_8.h
+)
+if(APPLE)
+    set(ISODEC_LIBRARY_ORIGIN "@loader_path")
+else()
+    set(ISODEC_LIBRARY_ORIGIN "$ORIGIN")
+endif()
+set_target_properties(isodeclib PROPERTIES
+    LINKER_LANGUAGE C
+    INSTALL_RPATH "${ISODEC_LIBRARY_ORIGIN}"
+    BUILD_RPATH "${ISODEC_LIBRARY_ORIGIN}"
+)
+target_include_directories(isodeclib PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${ISOGEN_SOURCE_DIR}"
+)
+target_compile_definitions(isodeclib PRIVATE ISODEC_BUILD_DLL)
+target_link_libraries(isodeclib PRIVATE isogen)
+
 if(MSVC)
-    # Release: dynamic DLL runtime
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
-    
-    # Optional: Debug: dynamic DLL runtime
-    if(CMAKE_BUILD_TYPE MATCHES Debug)
-        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDebugDLL")
+    target_compile_definitions(isodeclib PRIVATE _CRT_SECURE_NO_WARNINGS)
+elseif(UNIX)
+    target_link_libraries(isodeclib PRIVATE m)
+endif()
+
+if(ISODEC_ENABLE_AVX2 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64|i[3-6]86)$")
+    if(MSVC)
+        target_compile_options(isodeclib PRIVATE /arch:AVX2)
+    elseif(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+        target_compile_options(isodeclib PRIVATE -mavx2 -mfma)
     endif()
 endif()
 
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_SHARED_LIBRARY_PREFIX "")
+if(ISODEC_STATIC_GNU_RUNTIME AND UNIX AND NOT APPLE AND
+   CMAKE_C_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+    target_link_options(isodeclib PRIVATE -static-libgcc)
+endif()
 
-get_filename_component(INSTALL_DIR ../ ABSOLUTE)
-message(STATUS "INSTALL_DIR: ${INSTALL_DIR}")
-
-# Set SRC_DIR to the path of the IsoDec source code
-get_filename_component(SRC_DIR ./ ABSOLUTE)
-message(STATUS "SRC_DIR: ${SRC_DIR}")
-
-# FFTW directory is src_dir/fftw3
-set(FFTW_DIR "${SRC_DIR}/fftw")
-message(STATUS "FFTW_DIR: ${FFTW_DIR}")
-
-include_directories("${SRC_DIR}")
-include_directories("${FFTW_DIR}")
-
-#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'")
-set(CMAKE_INSTALL_RPATH ${INSTALL_DIR})
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
-
-
-# ======================== IsoGen Builds ========================
-
-add_library(isogen SHARED
-                isogendep.c isogendep.h
-                ${FFTW_DIR}/fftw3.h
-                isogenpep.c isogenpep.h
-                isogenrna.c isogenrna.h
-        isogen_test.cpp
+install(
+    TARGETS isodeclib
+    RUNTIME DESTINATION . COMPONENT Runtime
+    LIBRARY DESTINATION . COMPONENT Runtime
+    ARCHIVE DESTINATION . COMPONENT Development
 )
-set_target_properties(isogen PROPERTIES LINKER_LANGUAGE C)
-target_include_directories(isogen PUBLIC ${FFTW_DIR})
-target_compile_definitions(isogen PUBLIC ISOGEN_BUILD_DLL)
-
-
-if(MSVC)
-    add_library(fftw3 STATIC IMPORTED)
-    set_target_properties(fftw3 PROPERTIES IMPORTED_LOCATION ${FFTW_DIR}/fftw3.lib)
-else()
-    message(STATUS "Not MSVC")
-    message(STATUS "CMAKE_C_COMPILER_ID: ${CMAKE_C_COMPILER_ID}")
-    #    set(FFTW_LIB "/usr/lib/x86_64-linux-gnu/libfftw3.so")
-    #target_link_libraries(isogendep PUBLIC ${FFTW_LIB})
-    add_library(fftw3 SHARED IMPORTED)
-    set_target_properties(fftw3 PROPERTIES IMPORTED_LOCATION /usr/lib/x86_64-linux-gnu/libfftw3.so)
-    target_link_libraries(isogen PUBLIC m)
-endif()
-
-target_link_libraries(isogen PUBLIC fftw3)
-install(TARGETS isogen DESTINATION ${INSTALL_DIR})
-
-
-# ======================== IsoDec Builds ========================
-
-add_library(isodeclib SHARED isodeclib.c isodeclib.h phase_model_4.h phase_model_8.h isogenpep.h)
-set_target_properties(isodeclib PROPERTIES LINKER_LANGUAGE C)
-
-target_link_libraries(isodeclib PUBLIC isogen)
-
-target_include_directories(isodeclib PUBLIC ${SRC_DIR})
-
-target_compile_definitions(isodeclib PRIVATE ISODEC_BUILD_DLL)
-
-
-# Compiler flags
-include(find_avx.cmake)
-CHECK_FOR_AVX()
-if(HAVE_AVX2_EXTENSIONS)
-    message(STATUS "Using AVX2")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${AVX_FLAGS}")
-else()
-    message(STATUS "Not Using AVX2")
-    find_package(OpenMP REQUIRED)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-endif()
-
-install(TARGETS isodeclib DESTINATION ${INSTALL_DIR})
 
 add_executable(isodec_test isodec_test.cpp)
-target_include_directories(isodec_test PUBLIC ${SRC_DIR})
-target_link_libraries(isodec_test PUBLIC isogen isodeclib)
-
-add_executable(isogen_test isogen_test.cpp)
-target_include_directories(isogen_test PUBLIC ${SRC_DIR})
-target_link_libraries(isogen_test PUBLIC isogen isogen)
-
-install(TARGETS isodec_test DESTINATION ${INSTALL_DIR})
-
-
-
-
-
-
-
-
-
+target_include_directories(isodec_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(isodec_test PRIVATE isodeclib)
+if(ISODEC_STATIC_GNU_RUNTIME AND UNIX AND NOT APPLE AND
+   CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+    target_link_options(isodec_test PRIVATE -static-libstdc++ -static-libgcc)
+endif()
+install(TARGETS isodec_test RUNTIME DESTINATION bin COMPONENT Development)

@@ -3,14 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-from unidec.IsoDec.match import create_isodist
+from .match import create_isodist
 import time
 
-
-try:
-    mpl.use("WxAgg")
-except:
-    pass
 
 # Global variable to control dragging
 zoom_levels = []

@@ -3,8 +3,8 @@ import sys
 
 path_root = Path(__file__).parents[2]
 sys.path.append(str(path_root))
-from unidec.IsoDec.engine import IsoDecEngine
-from unidec.IsoDec.encoding_profile import data_dirs
+from .engine import IsoDecEngine
+from .encoding_profile import data_dirs
 import os
 import time
 

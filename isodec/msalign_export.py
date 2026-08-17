@@ -1,6 +1,7 @@
 import time
 import os
-import unidec.IsoDec.msalign_export as msalign
+
+from ._version import __version__
 
 
 def sort_by_scan_order(matched_collection, order):
@@ -73,7 +74,7 @@ def write_ms1_msalign(ms1_scan_dict, ms2_scan_dict, file, config):
             f.write("#Max scan number:\t" + str(-1) + "\n")
         else:
             f.write("#Min scan number:\t" + str(list(ms1_scan_dict.keys())[0]) + "\n")
-        f.write("#Version:\t1.0.0\n")
+        f.write("#Version:\t" + __version__ + "\n")
         f.write("####################### Parameters ######################\n\n")
 
         for k, v in ms1_scan_dict.items():
@@ -121,7 +122,7 @@ def write_ms2_msalign(ms2_scan_dict, ms1_scan_dict, reader, file, config, act_ty
             f.write("#Max scan number:\t" + str(-1) + "\n")
         else:
             f.write("#Min scan number:\t" + str(list(ms1_scan_dict.keys())[0]) + "\n")
-        f.write("#Version:\t1.0.0\n")
+        f.write("#Version:\t" + __version__ + "\n")
         f.write("####################### Parameters ######################\n\n")
 
         for k, v in ms2_scan_dict.items():

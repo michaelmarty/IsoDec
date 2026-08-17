@@ -1,14 +1,14 @@
 import numpy as np
 import os
-import unidec.tools as ud
-from unidec.IsoDec.datatools import *
+from . import tools as ud
+from .datatools import *
 from copy import deepcopy
 import matchms
 import pickle as pkl
 import time
-from unidec.IsoDec.match import create_isodist, find_matches
+from .match import create_isodist, find_matches
 from typing import List, Tuple
-from unidec.UniDecImporter.ImporterFactory import ImporterFactory, recognized_types
+from .io import ImporterFactory, recognized_types
 
 @njit(fastmath=True)
 def match_peaks(centroids: np.array, isodist: np.array, tol: float = 5.0) -> Tuple[List[int], List[int]]:

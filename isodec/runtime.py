@@ -1,22 +1,18 @@
 import os
 import time
 import numpy as np
-from pathlib import Path
-import sys
 
-path_root = Path(__file__).parents[2]
-sys.path.append(str(path_root))
-
-from unidec.IsoDec.datatools import get_all_centroids, check_spacings, remove_noise_cdata, datacompsub
-from unidec.IsoDec.match import MatchedCollection
-from unidec.modules.unidecstructure import IsoDecConfig
+from .datatools import get_all_centroids, check_spacings, remove_noise_cdata, datacompsub
+from .match import MatchedCollection
+from .config import IsoDecConfig
 
 from copy import deepcopy
-from unidec.IsoDec.c_interface import IsoDecWrapper, example
-from unidec.IsoDec.plots import plot_pks
-from unidec.IsoDec.altdecon import thrash_predict
-from unidec.UniDecImporter.ImporterFactory import ImporterFactory
-import unidec.modules.fwhmtools as fwhmtools
+from .c_interface import IsoDecWrapper, example
+from .plots import plot_pks
+from .altdecon import thrash_predict
+from .io import ImporterFactory
+from . import fwhm as fwhmtools
+from ._version import __version__
 
 class IsoDecRuntime:
     """
@@ -36,7 +32,7 @@ class IsoDecRuntime:
         self.test_centroids = []
         self.training_centroids = []
         self.config.verbose = verbose
-        self.version = "1.0.0"
+        self.version = __version__
         self.pks = MatchedCollection()
         self.wrapper = IsoDecWrapper()
         self.config.phaseres = phaseres
@@ -158,7 +154,11 @@ class IsoDecRuntime:
                 continue
             self.config.set_scan_info(s, reader)
             # print("Scan:", s, "Length:", len(spectrum), "Centroided:", reader.centroided)
-            self.batch_process_spectrum(spectrum, centroided=reader.centroided)
+            self.batch_process_spectrum(
+                spectrum,
+                centroided=reader.centroided,
+                type=self.analyte_type,
+            )
 
             if verbose:
                 print_rate = 100.0

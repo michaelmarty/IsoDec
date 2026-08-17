@@ -13,7 +13,7 @@
 // #include <omp.h>
 
 // Set the input/output names in bin_to_header.py, then run from the repository root:
-// python -m unidec.IsoDec.bin_to_header
+// python -m isodec.bin_to_header
 
 // void matrix_vector_multiply(const float* matrix, const float* vector, const float* bias, float* result, const int N, const int M, const bool relu) {
 // #pragma omp parallel for

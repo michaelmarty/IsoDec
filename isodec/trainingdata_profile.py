@@ -2,7 +2,7 @@ import os
 import pickle
 from itertools import groupby
 import matplotlib.pyplot as plt
-from unidec.IsoDec.runtime import IsoDecRuntime
+from .runtime import IsoDecRuntime
 import time
 import numpy as np
 

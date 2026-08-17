@@ -1,82 +1,40 @@
-import sys
-import getopt
+"""Command-line interface for IsoDec."""
+
 import argparse
-import os
-import platform
-sys.path.append("..")
+from pathlib import Path
 
-if platform.system() == "Windows":
-    udpath = "C:\\Python\\UniDec3"
-elif platform.system() == "Linux":
-    udpath = "/home/u17/mtmarty/UniDec"
-
-sys.path.append(udpath)
+from .runtime import IsoDecRuntime
 
 
-def main(*args, **kwargs):
-    print("Running Command Line IsoDec")
-
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "f:o:", ["file=", "out="])
-    except getopt.GetoptError as e:
-        print("Error in Argv. Likely unknown option: ", sys.argv, e)
-        print("Known options: -f, -o")
-        return None
-
-    # print("ARGS:", args)
-    # print("KWARGS:", kwargs)
-    # print("OPTS:", opts)
-    infile = None
-    outfile = None
-    assume_centroided=False
-
-    if len(args) > 0:
-        if "-precentroided" in args:
-            assume_centroided=True
-
-    if opts is not None:
-        for opt, arg in opts:
-            if opt in ("-f", "--file"):
-                infile = arg
-                print("Opening File:", infile)
-            if opt in ("-o", "--out"):
-                outfile = arg
-                print("Output File:", outfile)
-
-            if os.path.isfile(infile):
-                from unidec.IsoDec.runtime import IsoDecRuntime
-                eng = IsoDecRuntime()
-                eng.process_file(infile, assume_centroided=assume_centroided)
-                return
-
-    if len(args) >= 1:
-        file = args[0]
-        print("Opening File:", file)
-        if os.path.isfile(file):
-            from unidec.IsoDec.runtime import IsoDecRuntime
-            eng = IsoDecRuntime()
-            eng.process_file(file, assume_centroided=assume_centroided)
-            return
-
-    # if "train" in args:
-    #     from unidec.IsoDec.train import main
-    #     main()
-    #
-    # elif "generate" in args:
-    #     print("Generating Pkl Files")
-    #     if infile is None:
-    #         print("No Input File Specified")
-    #         return None
-    #     from unidec.IsoDec.trainingdata import process_file
-    #     process_file(infile)
-    #
-    # elif "generate_script" in args:
-    #     print("Generating Pkl Files")
-    #     directory = os.getcwd()
-    #     print("Directory:", directory)
-    #     from unidec.IsoDec.generate import generate_all
-    #     generate_all(directory)
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="isodec",
+        description="Assign charge states and deconvolve isotopically resolved mass spectra.",
+    )
+    parser.add_argument("spectrum", type=Path, help="Input spectrum (TXT, DAT, CSV, NPZ, or a UniDec-supported format)")
+    parser.add_argument("-o", "--output", type=Path, help="Output TSV filename")
+    parser.add_argument("--centroided", action="store_true", help="Treat the input as centroid data")
+    parser.add_argument("--type", choices=("PEPTIDE", "RNA"), default="PEPTIDE", help="Analyte isotope model")
+    parser.add_argument("--quiet", action="store_true", help="Suppress progress output")
+    return parser
 
 
-if __name__ == '__main__':
-    main()
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+    if not args.spectrum.is_file():
+        raise SystemExit(f"Spectrum does not exist: {args.spectrum}")
+
+    engine = IsoDecRuntime(verbose=not args.quiet)
+    engine.analyte_type = args.type
+    engine.process_file(
+        str(args.spectrum),
+        assume_centroided=args.centroided,
+        verbose=not args.quiet,
+    )
+    output = args.output or args.spectrum.with_name(f"{args.spectrum.stem}_isodec.tsv")
+    engine.pks.export_tsv(output, report_multiple_monoisos=engine.config.report_multiple_monoisos)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

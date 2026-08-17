@@ -3,10 +3,9 @@ import pickle
 import time
 
 import numpy as np
-from unidec.IsoDec import encoding
-import unidec.tools as ud
+from . import encoding
+from . import tools as ud
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import torch
 
 
@@ -192,9 +191,6 @@ data_dirs = ["MSV000090488",
 
 
 if __name__ == "__main__":
-
-    mpl.use("WxAgg")
-
     topdir = r"Z:\Group Share\JGP"
     encode_dir_list(topdir, data_dirs, check_existing=True)
     exit()

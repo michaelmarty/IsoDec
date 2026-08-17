@@ -440,8 +440,8 @@ if __name__ == "__main__":
     data = np.loadtxt(test1)
 
     import matplotlib.pyplot as plt
-    import unidec.tools as ud
-    from unidec.IsoDec.plots import cplot
+    from . import tools as ud
+    from .plots import cplot
 
     data = ud.datachop(data, 800, 2000)
     data2 = datacompsub(deepcopy(data), 100)

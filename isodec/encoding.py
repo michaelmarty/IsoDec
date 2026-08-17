@@ -1,20 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import unidec.tools as ud
-from unidec.IsoDec.datatools import fastnearest
-from unidec.IsoDec.match import mass_diff_c
+from . import tools as ud
+from .datatools import fastnearest
+from .isotope import mass_diff_c
 import pickle as pkl
 import time
 import torch
 import matplotlib as mpl
 from numba import njit
-# from unidec.IsoDec.plots import cplot
-
-try:
-    mpl.use("WxAgg")
-except:
-    pass
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
