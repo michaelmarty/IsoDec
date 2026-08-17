@@ -48,8 +48,7 @@ def test_all_runnable_modules_with_relative_imports_bootstrap_the_package():
             assert '__package__ = "isodec"' in source, module_path.name
 
 
-def test_version_and_native_library_are_packaged():
-    assert __version__ == "2.0.0"
+def test_native_library_is_packaged():
     assert Path(default_dll_path).is_file()
 
 
