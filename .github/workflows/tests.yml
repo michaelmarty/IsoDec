@@ -40,3 +40,55 @@ jobs:
       - name: Run tests outside the source tree
         working-directory: ${{ runner.temp }}
         run: python -m pytest "${{ github.workspace }}/tests" --import-mode=importlib
+
+  linux-arm64:
+    name: ubuntu-24.04-arm / Python 3.13
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          architecture: arm64
+
+      - name: Install FFTW
+        run: sudo apt-get update && sudo apt-get install --yes libfftw3-dev
+
+      - name: Install package and test dependencies
+        run: python -m pip install ".[test]"
+
+      - name: Run native ARM64 regression tests
+        working-directory: ${{ runner.temp }}
+        run: python -m pytest "${{ github.workspace }}/tests" --import-mode=importlib
+
+  windows-arm64:
+    name: windows-11-arm / Python 3.13
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          architecture: arm64
+
+      - name: Install ARM64 FFTW with vcpkg
+        shell: pwsh
+        run: |
+          $vcpkgRoot = (Resolve-Path -LiteralPath $env:VCPKG_INSTALLATION_ROOT).Path.Replace('\', '/')
+          & "$vcpkgRoot/vcpkg.exe" install fftw3:arm64-windows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "CMAKE_GENERATOR_PLATFORM=ARM64" >> $env:GITHUB_ENV
+          "CMAKE_ARGS=-DCMAKE_TOOLCHAIN_FILE=$vcpkgRoot/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=arm64-windows -DFFTW3_ROOT=$vcpkgRoot/installed/arm64-windows" >> $env:GITHUB_ENV
+
+      - name: Install package and test dependencies
+        run: python -m pip install ".[test]"
+
+      - name: Run native ARM64 regression tests
+        working-directory: ${{ runner.temp }}
+        run: python -m pytest "${{ github.workspace }}/tests" --import-mode=importlib
