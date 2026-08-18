@@ -51,27 +51,64 @@
 
 #include <immintrin.h>
 
+static inline float horizontal_sum_256(const __m256 value) {
+    __m128 sum = _mm_add_ps(
+        _mm256_castps256_ps128(value),
+        _mm256_extractf128_ps(value, 1)
+    );
+    sum = _mm_hadd_ps(sum, sum);
+    sum = _mm_hadd_ps(sum, sum);
+    return _mm_cvtss_f32(sum);
+}
+
 void matrix_vector_multiply(const float *matrix, const float *vector, const float *bias, float *result, const int N,
                             const int M, const bool relu) {
     for (int i = 0; i < N; i++) {
         float val = bias[i];
-        __m256 sum = _mm256_setzero_ps(); // Initialize sum to zero
-        int j;
-        for (j = 0; j <= M - 8; j += 8) {
-            // Load 4 elements from the matrix and vector
-            const __m256 mat = _mm256_loadu_ps(&matrix[i * M + j]);
-            const __m256 vec = _mm256_loadu_ps(&vector[j]);
-            // Perform element-wise multiplication and add to sum
-            //sum = _mm256_add_ps(sum, _mm256_mul_ps(mat, vec));
-            sum = _mm256_fmadd_ps(mat, vec, sum);
+        __m256 sum0 = _mm256_setzero_ps();
+        __m256 sum1 = _mm256_setzero_ps();
+        __m256 sum2 = _mm256_setzero_ps();
+        __m256 sum3 = _mm256_setzero_ps();
+        const float *row = &matrix[i * M];
+        int j = 0;
+
+        // Independent accumulators hide FMA latency and expose more
+        // instruction-level parallelism than one long dependency chain.
+        for (; j <= M - 32; j += 32) {
+            sum0 = _mm256_fmadd_ps(
+                _mm256_loadu_ps(&row[j]),
+                _mm256_loadu_ps(&vector[j]),
+                sum0
+            );
+            sum1 = _mm256_fmadd_ps(
+                _mm256_loadu_ps(&row[j + 8]),
+                _mm256_loadu_ps(&vector[j + 8]),
+                sum1
+            );
+            sum2 = _mm256_fmadd_ps(
+                _mm256_loadu_ps(&row[j + 16]),
+                _mm256_loadu_ps(&vector[j + 16]),
+                sum2
+            );
+            sum3 = _mm256_fmadd_ps(
+                _mm256_loadu_ps(&row[j + 24]),
+                _mm256_loadu_ps(&vector[j + 24]),
+                sum3
+            );
         }
-        // Horizontal addition of the 8 elements in sum
-        float temp[8];
-        _mm256_storeu_ps(temp, sum);
-        val += temp[0] + temp[1] + temp[2] + temp[3] + temp[4] + temp[5] + temp[6] + temp[7];
+        for (; j <= M - 8; j += 8) {
+            sum0 = _mm256_fmadd_ps(
+                _mm256_loadu_ps(&row[j]),
+                _mm256_loadu_ps(&vector[j]),
+                sum0
+            );
+        }
+        sum0 = _mm256_add_ps(sum0, sum1);
+        sum2 = _mm256_add_ps(sum2, sum3);
+        val += horizontal_sum_256(_mm256_add_ps(sum0, sum2));
         // Handle remaining elements
         for (; j < M; j++) {
-            val += matrix[i * M + j] * vector[j];
+            val += row[j] * vector[j];
         }
         // ReLU
         if (relu) {
@@ -753,14 +790,38 @@ int is_peak_index(const double *dataMZ, const float *dataInt, const int lengthmz
     return 1;
 }
 
-// Function to detect peaks in a spectrum. Returns the number of peaks found and fills the peakx and peaky arrays with the peak data
+// Function to detect peaks in a spectrum. Returns the number of peaks found and fills the peakx and peaky arrays with the peak data.
+// The deque retains the earliest index for equal intensities, matching is_peak_index's leftmost-plateau behavior.
 int peak_detect(const double *dataMZ, const float *dataInt, const int lengthmz, const int window, const float thresh,
-                float *peakx, float *peaky) {
+                float *peakx, float *peaky, int *maxdeque) {
     int plen = 0;
     const float max = Max(dataInt, lengthmz);
     const float absthresh = thresh * max;
+    int deque_start = 0;
+    int deque_end = 0;
+    int next = 0;
+
     for (int i = 0; i < lengthmz; i++) {
-        if (is_peak_index(dataMZ, dataInt, lengthmz, window, absthresh, i) == 1) {
+        int window_end = i + window;
+        if (window_end >= lengthmz) { window_end = lengthmz - 1; }
+
+        while (next <= window_end) {
+            while (deque_end > deque_start
+                   && dataInt[maxdeque[deque_end - 1]] < dataInt[next]) {
+                deque_end--;
+            }
+            maxdeque[deque_end++] = next++;
+        }
+
+        int window_start = i - window;
+        if (window_start < 0) { window_start = 0; }
+        while (deque_start < deque_end && maxdeque[deque_start] < window_start) {
+            deque_start++;
+        }
+
+        if (dataInt[i] > absthresh
+            && deque_start < deque_end
+            && maxdeque[deque_start] == i) {
             //printf("Peak %d: %f %f\n", plen, dataMZ[i], dataInt[i]);
             peakx[plen] = (float) dataMZ[i];
             peaky[plen] = dataInt[i];
@@ -820,18 +881,41 @@ void iso_mz_vals(const float mass, float *mzvals, const int z, const struct IsoS
     }
 }
 
-// Function used in qsorting of arrays from low to high
-int compare_float(const void *a, const void *b) {
-    if (*(float *) a > *(float *) b) { return 1; }
-    if (*(float *) a < *(float *) b) { return -1; }
-    return 0;
+// Finds the first index whose float-rounded m/z is not less than target.
+static int lower_bound_mz(const double *mz, const int length, const float target) {
+    int left = 0;
+    int right = length;
+    while (left < right) {
+        const int mid = left + (right - left) / 2;
+        if ((float) mz[mid] < target) {
+            left = mid + 1;
+        } else {
+            right = mid;
+        }
+    }
+    return left;
 }
 
-// Function used in qsorting of arrays from high to low
-int compare_float_reverse(const void *a, const void *b) {
-    if (*(float *) a > *(float *) b) { return -1; }
-    if (*(float *) a < *(float *) b) { return 1; }
-    return 0;
+static void insert_top_three(const float value, float top[3]) {
+    if (value > top[0]) {
+        top[2] = top[1];
+        top[1] = top[0];
+        top[0] = value;
+    } else if (value > top[1]) {
+        top[2] = top[1];
+        top[1] = value;
+    } else if (value > top[2]) {
+        top[2] = value;
+    }
+}
+
+static void find_top_three(const float *values, const int length, float top[3]) {
+    top[0] = -INFINITY;
+    top[1] = -INFINITY;
+    top[2] = -INFINITY;
+    for (int i = 0; i < length; i++) {
+        insert_top_three(values[i], top);
+    }
 }
 
 // Function to adjust the isotope distribution to match the experimental peaks
@@ -873,12 +957,11 @@ int bestshift_adjust(const double *mz, const float *inten, const int length, flo
             float shiftedmz = isomz[k] + shift;
 
             float matchedint = 0;
-
-            for (int j = 0; j < length; j++) {
+            const int match_start = lower_bound_mz(mz, length, shiftedmz - ppmtol);
+            for (int j = match_start; j < length; j++) {
                 float diff = (float) mz[j] - shiftedmz;
                 if (fabsf(diff) < ppmtol) {
                     float expval = inten[j];
-                    if (expval > matchedint) { matchedint = expval; }
                     if (expval > matchedint) { matchedint = expval; }
                 }
                 if (diff > ppmtol) { break; }
@@ -930,12 +1013,16 @@ int bestshift_adjust(const double *mz, const float *inten, const int length, flo
     float peakint = 0;
     float int1 = -1;
     float int2 = -1;
+    float matched_top3[3] = {-INFINITY, -INFINITY, -INFINITY};
     int *matchedindsiso;
     matchedindsiso = (int *) calloc(realisolength, sizeof(int));
     int *matchedindsexp;
     matchedindsexp = (int *) calloc(realisolength, sizeof(int));
-    float *matchedints;
-    matchedints = (float *) calloc(realisolength, sizeof(float));
+
+    const int mid_index = realisolength / 2;
+    if (realisolength > 0 && isodist[mid_index] != 0) {
+        areaexptotal = Sum(inten, length);
+    }
 
     for (int j = 0; j < realisolength; j++) {
         float shiftmz = isomz[j] + (float) bestshift * mass_diff_c / z;
@@ -950,15 +1037,15 @@ int bestshift_adjust(const double *mz, const float *inten, const int length, flo
 
         float highestmatch = 0;
         int highestindex = -1;
-        int mid_index = realisolength / 2;
         // Find matches and zero out the intensities
-        for (int i = 0; i < length; i++) {
+        const int match_start = lower_bound_mz(mz, length, shiftmz - ppmtol);
+        for (int i = match_start; i < length; i++) {
             float val = inten[i];
+            float diff = (float) mz[i] - shiftmz;
+            if (diff > ppmtol) { break; }
             if (val == 0) { continue; } // Skip if intensity is already zero (matched)
-            if (j == mid_index) { areaexptotal += val; }
 
             // Check if it's a match
-            float diff = (float) mz[i] - shiftmz;
             if (fabsf(diff) < ppmtol) {
                 // If it's the first or second isotope, save the intensity for z=1 checking
                 if (j == 0 && val > int1) {
@@ -981,7 +1068,7 @@ int bestshift_adjust(const double *mz, const float *inten, const int length, flo
             areamatch += isoval;
             matchedindsiso[nmatches] = j;
             matchedindsexp[nmatches] = highestindex;
-            matchedints[nmatches] = highestmatch;
+            insert_top_three(highestmatch, matched_top3);
             nmatches++;
         }
         if (settings.verbose) {
@@ -994,22 +1081,13 @@ int bestshift_adjust(const double *mz, const float *inten, const int length, flo
     // Check if the highest 3 peaks match
     bool highest3match = 0;
     if (nmatches >= 3) {
-        float *sortedints;
-        sortedints = (float *) calloc(length, sizeof(float));
-        memcpy(sortedints, inten, length * sizeof(float));
-        qsort(sortedints, length, sizeof(float), compare_float_reverse);
-
-        qsort(matchedints, nmatches, sizeof(float), compare_float_reverse);
-
-        bool t1 = sortedints[0] == matchedints[0];
-        bool t2 = sortedints[1] == matchedints[1];
-        bool t3 = sortedints[2] == matchedints[2];
+        float experimental_top3[3];
+        find_top_three(inten, length, experimental_top3);
+        bool t1 = experimental_top3[0] == matched_top3[0];
+        bool t2 = experimental_top3[1] == matched_top3[1];
+        bool t3 = experimental_top3[2] == matched_top3[2];
         highest3match = t1 && t2 && t3;
-
-        free(sortedints);
     }
-
-    free(matchedints);
 
     //
     //  Check Peaks and Add to Structure if Good
@@ -1199,17 +1277,24 @@ int process_spectrum(const double *cmz, const float *cint, int n, const char *fn
     peakx = (float *) calloc(n, sizeof(float));
     peaky = (float *) calloc(n, sizeof(float));
 
+    // Reuse one maximum-sized workspace for every candidate peak. The active
+    // m/z window never exceeds the spectrum's original length.
+    float *emat = (float *) calloc(config.elen, sizeof(float));
+    float *h1 = (float *) calloc(config.elen, sizeof(float));
+    float *h2 = (float *) calloc(config.maxz, sizeof(float));
+    double *mz = (double *) malloc(n * sizeof(double));
+    float *inten = (float *) malloc(n * sizeof(float));
+    int *peakdeque = (int *) malloc(n * sizeof(int));
+
     int nmatched = 0;
 
     // create copy of cint
     float *cintcopy;
     cintcopy = (float *) calloc(n, sizeof(float));
-    memcpy(cintcopy, cint, n * sizeof(float));
 
     // create a copy of cmz
     double *cmzcopy;
     cmzcopy = (double *) calloc(n, sizeof(double));
-    memcpy(cmzcopy, cmz, n * sizeof(double));
 
     //Create an empty list of zeroindices and track how many zeros have been added.
     int *zeroindices;
@@ -1218,8 +1303,16 @@ int process_spectrum(const double *cmz, const float *cint, int n, const char *fn
 
     // Check if cintcopy or cmzcopy are null
     if (cintcopy == NULL || cmzcopy == NULL || matchedpeaks == NULL
-        || peakx == NULL || peaky == NULL || zeroindices == NULL) {
-        printf("Error: Could not allocate memory for cintcopy or cmzcopy\n");
+        || peakx == NULL || peaky == NULL || zeroindices == NULL
+        || emat == NULL || h1 == NULL || h2 == NULL || mz == NULL || inten == NULL
+        || peakdeque == NULL) {
+        printf("Error: Could not allocate spectrum workspace\n");
+        free(peakdeque);
+        free(inten);
+        free(mz);
+        free(h2);
+        free(h1);
+        free(emat);
         free(zeroindices);
         free(cmzcopy);
         free(cintcopy);
@@ -1228,6 +1321,9 @@ int process_spectrum(const double *cmz, const float *cint, int n, const char *fn
         FreeWeights(weights);
         exit(102);
     }
+
+    memcpy(cintcopy, cint, n * sizeof(float));
+    memcpy(cmzcopy, cmz, n * sizeof(double));
 
     // Loop through knockdown rounds
     for (int k = 0; k < settings.knockdown_rounds; k++) {
@@ -1245,7 +1341,10 @@ int process_spectrum(const double *cmz, const float *cint, int n, const char *fn
         }
 
         // Detect Peaks
-        int plen = peak_detect(cmzcopy, cintcopy, n, settings.peakwindow, settings.peakthresh, peakx, peaky);
+        int plen = peak_detect(
+            cmzcopy, cintcopy, n, settings.peakwindow, settings.peakthresh,
+            peakx, peaky, peakdeque
+        );
         //Should rewrite this to include indexes
         if (config.verbose == 1) { printf("Round %d: Peaks: %d Window: %d\n", k, plen, settings.peakwindow); }
         if (plen == 0) { break; }
@@ -1292,23 +1391,9 @@ int process_spectrum(const double *cmz, const float *cint, int n, const char *fn
                 continue;
             }
 
-            // Declare memory for weights and biases and emat and mz and inten arrays
-            float *emat = calloc(config.elen, sizeof(float));
-            float *h1 = calloc(config.elen, sizeof(float));
-            float *h2 = calloc(config.maxz, sizeof(float));
-            double *mz = calloc(l, sizeof(double));
-            float *inten = calloc(l, sizeof(float));
-            // Check if they are null
-            if (mz == NULL || inten == NULL || emat == NULL || h1 == NULL || h2 == NULL) {
-                printf("Error: Could not allocate memory for mz or inten\n");
-                exit(105);
-            }
-
-            // Note, need to think about the zeros in here
-            for (int j = 0; j < l; j++) {
-                mz[j] = cmzcopy[start + j];
-                inten[j] = cintcopy[start + j];
-            }
+            memset(emat, 0, config.elen * sizeof(float));
+            memcpy(mz, &cmzcopy[start], l * sizeof(double));
+            memcpy(inten, &cintcopy[start], l * sizeof(float));
 
             // Encode the data, this will check if enough peaks have met the data threshold
             int good = encode(mz, inten, l2, emat, config, settings);
@@ -1361,11 +1446,6 @@ int process_spectrum(const double *cmz, const float *cint, int n, const char *fn
                     }
                 }
             }
-            free(mz);
-            free(inten);
-            free(emat);
-            free(h1);
-            free(h2);
             // End of Peak Loop
         }
         if (config.verbose == 1) { printf("\nGood: %d\n", ngood); }
@@ -1386,6 +1466,12 @@ int process_spectrum(const double *cmz, const float *cint, int n, const char *fn
     free(cmzcopy);
     free(peakx);
     free(peaky);
+    free(emat);
+    free(h1);
+    free(h2);
+    free(mz);
+    free(inten);
+    free(peakdeque);
     FreeWeights(weights);
     if (config.verbose == 1) { printf("Done\n"); }
 

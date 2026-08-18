@@ -94,8 +94,10 @@ class IsoDecRuntime:
 
         if refresh:
             self.pks = MatchedCollection()
-
+        t1 = time.perf_counter()
         self.pks = self.wrapper.process_spectrum(centroids, self.pks, self.config, type)
+        t2 = time.perf_counter()
+        print("Processed Spectrum, N Peaks:", len(self.pks.peaks), "Time:", t2 - t1)
 
         return self.pks
 

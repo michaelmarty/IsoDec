@@ -69,3 +69,22 @@ runtime notices. When using IsoDec, please cite Pavek et al.,
 “[A Fast Neural Network for Isotopic Charge State Assignment](https://doi.org/10.1021/jacs.5c03162),”
 *J. Am. Chem. Soc.* **2025**, *147*, 21610–21620. Machine-readable metadata is
 provided in [CITATION.cff](CITATION.cff).
+
+## Change Log
+
+### 2.0.1
+
+Changes to improve performance.
+
+Added bin folder with built files and changed install paths to there.
+
+### 2.0.0
+
+Developing the ability to assign charge state directly to profile data. Ongoing experimental features here.
+
+Split into a standalone package with IsoGen as a submodule. IsoDec now has its own versioning and release cycle.
+
+Added many tests and automated deployment generation.
+
+### 1.0.0
+- Initial release of IsoDec with IsoGen integration for isotopic charge state assignment and deconvolution of mass spectrometry data. Was released as part of the UniDec package.

@@ -1,4 +1,18 @@
 cmake_minimum_required(VERSION 3.22.1)
+
+# Keep standalone installs beside the source directory instead of using the
+# platform-wide default (for example, Program Files on Windows). Packaging
+# tools can still supply their own staging prefix via CMAKE_INSTALL_PREFIX.
+get_filename_component(
+    ISODEC_DEFAULT_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE
+)
+if(NOT DEFINED CMAKE_INSTALL_PREFIX)
+    set(
+        CMAKE_INSTALL_PREFIX "${ISODEC_DEFAULT_INSTALL_PREFIX}"
+        CACHE PATH "Default IsoDec installation directory"
+    )
+endif()
+
 project(isodec LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 99)
@@ -75,6 +89,32 @@ install(
     LIBRARY DESTINATION . COMPONENT Runtime
     ARCHIVE DESTINATION . COMPONENT Development
 )
+
+# A standalone install into the source package keeps all native artifacts next
+# to the test executables. Explicit install prefixes (including wheel staging
+# directories) retain the standard CMake layout expected by their caller.
+install(CODE "
+    if(CMAKE_INSTALL_PREFIX STREQUAL \"${ISODEC_DEFAULT_INSTALL_PREFIX}\")
+        file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/bin\")
+        file(GLOB ISODEC_NATIVE_ARTIFACTS LIST_DIRECTORIES FALSE
+            \"\${CMAKE_INSTALL_PREFIX}/*.dll\"
+            \"\${CMAKE_INSTALL_PREFIX}/*.lib\"
+            \"\${CMAKE_INSTALL_PREFIX}/*.so\"
+            \"\${CMAKE_INSTALL_PREFIX}/*.so.*\"
+            \"\${CMAKE_INSTALL_PREFIX}/*.dylib\"
+            \"\${CMAKE_INSTALL_PREFIX}/*.a\"
+        )
+        foreach(ISODEC_NATIVE_ARTIFACT IN LISTS ISODEC_NATIVE_ARTIFACTS)
+            get_filename_component(ISODEC_NATIVE_NAME
+                \"\${ISODEC_NATIVE_ARTIFACT}\" NAME
+            )
+            file(RENAME
+                \"\${ISODEC_NATIVE_ARTIFACT}\"
+                \"\${CMAKE_INSTALL_PREFIX}/bin/\${ISODEC_NATIVE_NAME}\"
+            )
+        endforeach()
+    endif()
+" ALL_COMPONENTS)
 
 add_executable(isodec_test isodec_test.cpp)
 target_include_directories(isodec_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

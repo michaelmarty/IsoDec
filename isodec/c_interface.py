@@ -1,4 +1,5 @@
 import ctypes
+import time
 from importlib import metadata
 import os
 import platform
@@ -13,6 +14,7 @@ if not __package__:
 
 from .match import MatchedPeak, MatchedCollection
 from .config import IsoDecConfig
+from .plots import cplot
 
 _system = platform.system()
 _library_names = {
@@ -296,6 +298,7 @@ class IsoDecWrapper:
         elems = (MPStruct * n)()
         matchedpeaks = ctypes.cast(elems, ctypes.POINTER(MPStruct))
 
+        t1 = time.perf_counter()
         nmatched = self.c_lib.process_spectrum(
             cmz.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
             cint.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
@@ -305,6 +308,8 @@ class IsoDecWrapper:
             settings,
             type_c,
         )
+        t2 = time.perf_counter()
+        print(f"Processed {n} centroids in {t2 - t1:.4f} seconds, found {nmatched} matched peaks.")
 
         if pks is None:
             pks = MatchedCollection()
