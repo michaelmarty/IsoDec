@@ -12,10 +12,11 @@ Install a published wheel:
 python -m pip install isodec
 ```
 
-IsoDec supports Python 3.9 and newer on 64-bit Windows, Linux, and macOS.
-Compatible wheels include the native IsoDec and IsoGen libraries. A source
-build requires CMake 3.22.1 or newer, a C/C++ compiler, FFTW, and an initialized
-IsoGen submodule:
+IsoDec supports Python 3.9 and newer on 64-bit Windows, Linux, and macOS,
+including Apple silicon. Native builds are also tested on ARM64 Windows and
+Linux. Compatible wheels include the native IsoDec and IsoGen libraries. A
+source build requires CMake 3.22.1 or newer, a C/C++ compiler, FFTW, and an
+initialized IsoGen submodule:
 
 ```shell
 git clone --recurse-submodules https://github.com/michaelmarty/IsoDec.git
@@ -70,21 +71,29 @@ runtime notices. When using IsoDec, please cite Pavek et al.,
 *J. Am. Chem. Soc.* **2025**, *147*, 21610–21620. Machine-readable metadata is
 provided in [CITATION.cff](CITATION.cff).
 
-## Change Log
+## Changelog
 
-### 2.0.1
+### 2.0.1 (2026-08-18)
 
-Changes to improve performance.
+- Improved native processing performance with optimized AVX matrix operations,
+  linear-time peak detection, faster isotope matching, and reusable work
+  buffers.
+- Moved installed native libraries and executables into `isodec/bin`; Windows
+  binaries are included with the package.
+- Added processing-time and matched-peak reporting for native spectrum runs.
+- Added automated MSVC-versus-IntelLLVM performance benchmarking.
 
-Added bin folder with built files and changed install paths to there.
+### 2.0.0 (2026-08-17)
 
-### 2.0.0
-
-Developing the ability to assign charge state directly to profile data. Ongoing experimental features here.
-
-Split into a standalone package with IsoGen as a submodule. IsoDec now has its own versioning and release cycle.
-
-Added many tests and automated deployment generation.
+- Split IsoDec from UniDec into the standalone `isodec` package, with IsoGen as
+  a submodule and an independent version and release cycle.
+- Added experimental charge-state assignment directly from profile-mode data.
+- Added cross-platform tests—including native ARM64 Windows and Linux
+  coverage—documentation, and automated wheel and source distribution
+  publishing.
 
 ### 1.0.0
-- Initial release of IsoDec with IsoGen integration for isotopic charge state assignment and deconvolution of mass spectrometry data. Was released as part of the UniDec package.
+
+- Initial IsoDec release with IsoGen integration for isotopic charge-state
+  assignment and deconvolution of mass spectrometry data, distributed as part
+  of UniDec.
