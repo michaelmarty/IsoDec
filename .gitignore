@@ -11,3 +11,5 @@
 /**/__pycache__/
 /*.egg-info/
 /wheelhouse/
+/isodec/src/cmake-build-release-visual-studio/
+/tests/test_spectrum_unidecfiles/
